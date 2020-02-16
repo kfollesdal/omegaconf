@@ -1,4 +1,5 @@
 import re
+import sys
 from enum import Enum
 from typing import Any, Dict, List, Match, Optional, Tuple, Union
 
@@ -67,10 +68,29 @@ def _resolve_optional(type_: Any) -> Tuple[bool, Any]:
     return False, type_
 
 
-def get_attr_data(obj: Any) -> Dict[str, Any]:
+def _wrap_and_assign(
+    obj_type: Any,
+    d: Dict[str, Any],
+    name: str,
+    type_: Any,
+    is_optional: bool,
+    value: Any,
+) -> None:
     from omegaconf.omegaconf import _maybe_wrap
 
-    d = {}
+    try:
+        d[name] = _maybe_wrap(
+            annotated_type=type_, is_optional=is_optional, value=value, parent=None
+        )
+    except ValidationError as ve:
+        raise type(ve)(
+            f"Error setting '{obj_type.__name__}.{name}={value}' : {ve}"
+        ).with_traceback(sys.exc_info()[2]) from None
+
+
+def get_attr_data(obj: Any) -> Dict[str, Any]:
+
+    d: Dict[str, Any] = {}
     is_type = isinstance(obj, type)
     obj_type = obj if is_type else type(obj)
     for name, attrib in attr.fields_dict(obj_type).items():
@@ -90,17 +110,15 @@ def get_attr_data(obj: Any) -> Dict[str, Any]:
                     )
         if is_nested and value in (None, "???"):
             raise ValueError("Nested value {} must not be None or ???".format(name))
+        _wrap_and_assign(obj_type, d, name, type_, is_optional, value)
 
-        d[name] = _maybe_wrap(
-            annotated_type=type_, is_optional=is_optional, value=value, parent=None
-        )
     return d
 
 
 def get_dataclass_data(obj: Any) -> Dict[str, Any]:
-    from omegaconf.omegaconf import _maybe_wrap
-
-    d = {}
+    d: Dict[str, Any] = {}
+    is_type = isinstance(obj, type)
+    obj_type = obj if is_type else type(obj)
     for field in dataclasses.fields(obj):
         name = field.name
         is_optional, type_ = _resolve_optional(field.type)
@@ -121,9 +139,7 @@ def get_dataclass_data(obj: Any) -> Dict[str, Any]:
         if is_nested and value in (None, "???"):
             raise ValueError("Nested value {} must not be None or ???".format(name))
 
-        d[name] = _maybe_wrap(
-            annotated_type=type_, is_optional=is_optional, value=value, parent=None
-        )
+        _wrap_and_assign(obj_type, d, name, type_, is_optional, value)
     return d
 
 
