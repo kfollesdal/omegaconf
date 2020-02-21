@@ -14,6 +14,7 @@ from omegaconf import (
     UnsupportedValueType,
 )
 from omegaconf.basecontainer import BaseContainer
+from omegaconf.errors import CompactKeyError
 
 from . import IllegalType, StructuredWithMissing, does_not_raise
 
@@ -461,3 +462,28 @@ def test_struct_mode_missing_key_setitem() -> None:
     OmegaConf.set_struct(cfg, True)
     with pytest.raises(KeyError):
         cfg.__setitem__("zoo", 10)
+
+
+@pytest.mark.parametrize(  # type: ignore
+    "inp,expected",
+    [
+        ({"a.aa": 10}, {"a": {"aa": 10}}),
+        ({"a.aa.aaa": 10, "a.aa.bbb": 20}, {"a": {"aa": {"aaa": 10, "bbb": 20}}}),
+        ({"a.aa": {"aaa": 10, "bbb": 20}}, {"a": {"aa": {"aaa": 10, "bbb": 20}}}),
+        ({"a.aa": {"aaa": 10, "bbb": 20}}, {"a": {"aa": {"aaa": 10, "bbb": 20}}}),
+        ({"a.aa": 10, "a.aa.b": 10}, pytest.raises(CompactKeyError)),
+        ({"a": {"aa.aaa": 10, "aa.bbb": 20}}, {"a": {"aa": {"aaa": 10, "bbb": 20}}}),
+        ({"a..aa": 10}, pytest.raises(CompactKeyError)),
+    ],
+)
+def test_compact_keys(inp: Any, expected: Any) -> None:
+    if isinstance(expected, dict):
+        assert OmegaConf.create(inp) == OmegaConf.create(expected)
+    else:
+        with expected:
+            OmegaConf.create(inp)
+
+
+def test_escaped_compact_key() -> None:
+    cfg = OmegaConf.create({"a\\.aa": 10})
+    assert cfg["a.aa"] == 10

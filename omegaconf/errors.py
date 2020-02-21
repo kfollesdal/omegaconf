@@ -31,3 +31,9 @@ class UnsupportedInterpolationType(ValueError):
     """
     Thrown when an attempt to use an unregistered interpolation is made
     """
+
+
+class CompactKeyError(ValueError):
+    """
+    Thrown when a compact key usage triggers an error
+    """
