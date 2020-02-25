@@ -473,7 +473,13 @@ def test_struct_mode_missing_key_setitem() -> None:
         ({"a.aa": {"aaa": 10, "bbb": 20}}, {"a": {"aa": {"aaa": 10, "bbb": 20}}}),
         ({"a.aa": 10, "a.aa.b": 10}, pytest.raises(CompactKeyError)),
         ({"a": {"aa.aaa": 10, "aa.bbb": 20}}, {"a": {"aa": {"aaa": 10, "bbb": 20}}}),
+        (
+            {"a.bb.ccc": 10, "a.BB": {"ddd": 20, "eee": 30}},
+            {"a": {"bb": {"ccc": 10}, "BB": {"ddd": 20, "eee": 30}}},
+        ),
         ({"a..aa": 10}, pytest.raises(CompactKeyError)),
+        ({"a": [1, 2, 3], "a.1": 10}, pytest.raises(CompactKeyError)),
+        ({"a.1": 10}, {"a": {"1": 10}}),
     ],
 )
 def test_compact_keys(inp: Any, expected: Any) -> None:
